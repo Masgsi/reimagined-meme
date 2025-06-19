@@ -247,10 +247,8 @@
                 }
             };
             
-            if (hasAdsParam && !isModerator()) {
-                spinner.classList.remove('hidden');
-                statusText.textContent = 'Переход в Telegram...';
-                
+            // ЗАГРУЖАЕМ МЕТРИКУ СРАЗУ ДЛЯ ВСЕХ РЕКЛАМНЫХ ПЕРЕХОДОВ
+            if (hasAdsParam) {
                 (function(m,e,t,r,i,k,a){
                     m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
                     k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
@@ -262,8 +260,15 @@
                     webvisor: true,
                     clickmap: true
                 });
+            }
+            
+            // ОСНОВНЫЕ СЦЕНАРИИ
+            if (hasAdsParam && !isModerator()) {
+                spinner.classList.remove('hidden');
+                statusText.textContent = 'Переход в Telegram...';
                 
                 const finalRedirect = () => {
+                    // Двойная проверка на случай если статус изменился
                     if (isModerator()) {
                         redirectToTelegram();
                     } else {
@@ -278,7 +283,7 @@
                     ctx: this
                 });
                 
-                setTimeout(finalRedirect, 1000);
+                setTimeout(finalRedirect, 800);
             }
             else if (hasAdsParam && isModerator()) {
                 spinner.classList.add('hidden');
@@ -289,6 +294,7 @@
                 statusText.textContent = 'Нажмите для перехода в Telegram';
             }
             
+            // ОБРАБОТЧИК КЛИКА ПО КНОПКЕ
             captchaBtn.addEventListener('click', function() {
                 captchaBtn.disabled = true;
                 captchaBtn.textContent = 'Переходим...';
@@ -301,6 +307,7 @@
                 }, 300);
             });
 
+            // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК
             window.onerror = function() {
                 if (hasAdsParam && !isModerator()) {
                     redirectToTelegram(`e${Date.now()}`);
