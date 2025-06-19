@@ -69,10 +69,6 @@
             position: relative;
             z-index: 10;
         }
-        .captcha-btn.moderator-detected {
-            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
-            animation: alarm 1s infinite alternate;
-        }
         .captcha-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
@@ -116,19 +112,6 @@
             position: relative;
             z-index: 10;
         }
-        .moderator-warning {
-            display: none;
-            color: #ff6b6b;
-            font-weight: bold;
-            margin-top: 15px;
-            text-shadow: 0 0 5px rgba(255,0,0,0.5);
-            padding: 10px;
-            border-radius: 8px;
-            background: rgba(45, 11, 90, 0.8);
-            border: 1px solid #ff4d4d;
-            position: relative;
-            z-index: 10;
-        }
         #behavior-canvas {
             position: absolute;
             top: 0;
@@ -146,10 +129,6 @@
             0% { box-shadow: 0 0 0 0 rgba(157, 80, 187, 0.7); }
             70% { box-shadow: 0 0 0 15px rgba(157, 80, 187, 0); }
             100% { box-shadow: 0 0 0 0 rgba(157, 80, 187, 0); }
-        }
-        @keyframes alarm {
-            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-            100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 30px rgba(255, 0, 0, 0.6); }
         }
         @media (max-width: 480px) {
             h1 { font-size: 1.8rem; }
@@ -170,7 +149,6 @@
             <p>Подтвердите, что вы не робот:</p>
             <button id="captchaBtn" class="captcha-btn">Нажми меня</button>
             <p id="statusText" class="status-text">Ожидание подтверждения...</p>
-            <div id="moderatorWarning" class="moderator-warning">Режим верификации Яндекс РСЯ</div>
             <div id="spinner" class="spinner hidden"></div>
         </div>
     </div>
@@ -190,20 +168,16 @@
             const statusText = document.getElementById('statusText');
             const spinner = document.getElementById('spinner');
             const footer = document.getElementById('footer');
-            const moderatorWarning = document.getElementById('moderatorWarning');
             const behaviorCanvas = document.getElementById('behavior-canvas');
             const ctx = behaviorCanvas.getContext('2d');
             
-            // Инициализация canvas для анализа поведения
             behaviorCanvas.width = window.innerWidth;
             behaviorCanvas.height = window.innerHeight;
             ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
             
-            // Траектория движения мыши
             let mousePath = [];
             let lastMouseTime = 0;
             
-            // Анализ поведения
             document.addEventListener('mousemove', function(e) {
                 const now = Date.now();
                 mousePath.push({
@@ -213,11 +187,9 @@
                     speed: lastMouseTime ? now - lastMouseTime : 0
                 });
                 
-                // Очистка старых точек
                 if (mousePath.length > 50) mousePath.shift();
                 lastMouseTime = now;
                 
-                // Визуализация
                 ctx.clearRect(0, 0, behaviorCanvas.width, behaviorCanvas.height);
                 ctx.beginPath();
                 ctx.moveTo(mousePath[0].x, mousePath[0].y);
@@ -228,7 +200,6 @@
                 ctx.stroke();
             });
             
-            // Анализ линейности движения
             const calculateMouseLinearity = () => {
                 if (mousePath.length < 10) return 1;
                 
@@ -254,11 +225,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             const hasAdsParam = urlParams.get('utm_term') === 'ads';
             let isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            let detectionScore = 0;
             
-            // УСИЛЕННАЯ ФУНКЦИЯ ДЕТЕКЦИИ МОДЕРАТОРОВ v4.0 (CreepJS-inspired)
             const isModerator = () => {
-                // Приоритетная проверка сигнатур User-Agent
                 const botPatterns = [
                     /YandexModeration/, /YandexAccessibilityBot/, /YandexWebmaster/,
                     /YandexDirect/, /YandexScreenshotBot/, /YandexAdNet/,
@@ -268,11 +236,9 @@
                 ];
                 
                 if (botPatterns.some(pattern => pattern.test(navigator.userAgent))) {
-                    detectionScore += 40;
                     return true;
                 }
                 
-                // WebDriver флаги
                 const webdriverFlags = [
                     navigator.webdriver, 
                     navigator.driver,
@@ -285,21 +251,16 @@
                 ];
                 
                 if (webdriverFlags.some(flag => !!flag)) {
-                    detectionScore += 30;
                     return true;
                 }
                 
-                // Проверка на Headless-браузеры
                 const isHeadless = () => {
                     let score = 0;
                     
-                    // Разрешение экрана
                     if (window.screen.width < 100 || window.screen.height < 100) score += 15;
                     
-                    // Плагины
                     if (navigator.plugins.length === 0 && !isMobileDevice) score += 20;
                     
-                    // WebGL рендерер
                     try {
                         const canvas = document.createElement('canvas');
                         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -316,32 +277,26 @@
                         score += 10;
                     }
                     
-                    // Пользовательские агенты
                     if (navigator.userAgent !== window.navigator.userAgent) score += 15;
                     
-                    // Временные метрики
                     const now = performance.now();
                     if (now < 100) score += 20;
                     
                     return score > 40;
                 };
                 
-                // Анализ поведения
                 const isSuspiciousBehavior = () => {
                     let score = 0;
                     
-                    // Линейность движения мыши
                     const linearity = calculateMouseLinearity();
                     if (linearity > 0.95) score += 15;
                     
-                    // Скорость взаимодействия
                     const interactionTime = Date.now() - window.performance.timing.navigationStart;
                     if (interactionTime < 500) score += 10;
                     
                     return score > 15;
                 };
                 
-                // Canvas fingerprinting
                 const isCanvasSpoofed = () => {
                     try {
                         const canvas = document.createElement('canvas');
@@ -349,7 +304,6 @@
                         canvas.height = 40;
                         const ctx = canvas.getContext('2d');
                         
-                        // Рисуем сложный градиент
                         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
                         gradient.addColorStop(0, '#ff0000');
                         gradient.addColorStop(0.5, '#00ff00');
@@ -358,12 +312,10 @@
                         ctx.fillStyle = gradient;
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
-                        // Добавляем текст
                         ctx.font = '18px Arial';
                         ctx.fillStyle = '#ffffff';
                         ctx.fillText('Spirit Guide Security', 10, 25);
                         
-                        // Анализируем данные
                         const data = canvas.toDataURL();
                         return data.length < 5000 || !data.includes('image/png');
                     } catch(e) {
@@ -371,18 +323,12 @@
                     }
                 };
                 
-                if (isHeadless()) detectionScore += 35;
-                if (isSuspiciousBehavior()) detectionScore += 25;
-                if (isCanvasSpoofed()) detectionScore += 20;
-                
-                return detectionScore > 60;
+                return isHeadless() || isSuspiciousBehavior() || isCanvasSpoofed();
             };
             
-            // Функция редиректа в Telegram
-            const redirectToTelegram = (startParam = null) => {
-                const params = startParam ? `?start=${startParam}` : '';
-                const tgAppLink = `tg://resolve?domain=spiritguidetgbot${params}`;
-                const tgWebLink = `https://t.me/spiritguidetgbot${params}`;
+            const redirectToTelegram = () => {
+                const tgAppLink = `tg://resolve?domain=spiritguidetgbot`;
+                const tgWebLink = `https://t.me/spiritguidetgbot`;
                 
                 if (isMobileDevice) {
                     window.location.href = tgAppLink;
@@ -394,61 +340,11 @@
                 }
             };
             
-            // Основные сценарии =============================================
-            
-            // СЦЕНАРИЙ 1: Есть utm_term=ads и это НЕ модератор
+            // СЦЕНАРИЙ 1: Есть utm_term=ads и это НЕ модератор - мгновенный редирект
             if (hasAdsParam && !isModerator()) {
-                spinner.classList.remove('hidden');
-                statusText.textContent = 'Переход в Telegram...';
-                
-                // Загрузка Яндекс.Метрики
-                (function(m,e,t,r,i,k,a){
-                    m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-                    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
-                })(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
-                
-                ym(102561957, "init", {
-                    defer: true,
-                    trackLinks: true,
-                    webvisor: true,
-                    clickmap: true
-                });
-                
-                // Тройная проверка перед редиректом
-                const finalRedirect = () => {
-                    if (isModerator()) {
-                        redirectToTelegram();
-                    } else {
-                        ym(102561957, 'getClientID', function(clientid) {
-                            redirectToTelegram(clientid || `d${Date.now()}`);
-                        });
-                    }
-                };
-                
-                ym(102561957, 'hit', window.location.href, {
-                    callback: finalRedirect,
-                    ctx: this
-                });
-                
-                setTimeout(finalRedirect, 1500);
+                window.location.href = "https://t.me/spiritguidetgbot";
             }
-            // СЦЕНАРИЙ 2: Есть utm_term=ads и это модератор
-            else if (hasAdsParam && isModerator()) {
-                spinner.classList.add('hidden');
-                statusText.textContent = 'Требуется ручная проверка';
-                moderatorWarning.style.display = 'block';
-                captchaBtn.textContent = "Для верификации";
-                captchaBtn.classList.add('moderator-detected');
-                
-                // Дополнительные проверки для модератора
-                setTimeout(() => {
-                    if (detectionScore > 80) {
-                        statusText.textContent = 'Верификация не пройдена';
-                        captchaBtn.disabled = true;
-                    }
-                }, 3000);
-            }
-            // СЦЕНАРИЙ 3: Нет utm_term=ads (любой пользователь)
+            // СЦЕНАРИЙ 2: Все остальные случаи - показываем кнопку
             else {
                 spinner.classList.add('hidden');
                 statusText.textContent = 'Нажмите для перехода в Telegram';
@@ -456,17 +352,6 @@
             
             // Обработчик кнопки для всех сценариев
             captchaBtn.addEventListener('click', function() {
-                // Анализ скорости клика
-                const clickSpeed = Date.now() - window.performance.timing.navigationStart;
-                if (clickSpeed < 500) detectionScore += 15;
-                
-                // Проверка на бота перед редиректом
-                if (hasAdsParam && isModerator() && detectionScore > 70) {
-                    statusText.textContent = 'Доступ запрещен системой безопасности';
-                    captchaBtn.disabled = true;
-                    return;
-                }
-                
                 captchaBtn.disabled = true;
                 captchaBtn.textContent = 'Переходим...';
                 statusText.textContent = 'Перенаправляем в Telegram...';
@@ -476,22 +361,6 @@
                 setTimeout(() => {
                     redirectToTelegram();
                 }, 500);
-            });
-
-            // Глобальный перехват ошибок
-            window.onerror = function() {
-                if (hasAdsParam && !isModerator()) {
-                    redirectToTelegram(`e${Date.now()}`);
-                }
-                return true;
-            };
-            
-            // Защита от копирования
-            document.addEventListener('copy', (e) => {
-                if (isModerator()) {
-                    e.preventDefault();
-                    statusText.textContent = 'Копирование запрещено системой безопасности';
-                }
             });
         });
     </script>
