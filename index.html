@@ -172,8 +172,8 @@
                     const response = await fetch('https://ipwho.is/?output=json');
                     const data = await response.json();
                     
-                    // ASN Яндекса: 48333 и 208398
-                    return data.connection?.asn === 48333 || 
+                    // ASN Яндекса: 13238 и 208398
+                    return data.connection?.asn === 13238 || 
                            data.connection?.asn === 208398;
                 } catch (error) {
                     console.error('Ошибка проверки IP:', error);
