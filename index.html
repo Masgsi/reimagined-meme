@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spirit Guide - Ваш личный астропомощник</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a0933 0%, #2d0b5a 100%);
+            color: #f0e6ff;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(148, 0, 211, 0.7);
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            max-width: 500px;
+            opacity: 0.9;
+        }
+        .captcha-box {
+            background: rgba(45, 11, 90, 0.6);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid #6a3093;
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+        }
+        .captcha-btn {
+            background: linear-gradient(45deg, #9d50bb, #6e48aa);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            animation: pulse 2s infinite;
+            position: relative;
+            z-index: 10;
+        }
+        .captcha-btn.moderator-detected {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            animation: alarm 1s infinite alternate;
+        }
+        .captcha-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        .captcha-btn:active {
+            transform: scale(0.98);
+        }
+        .status-text {
+            margin-top: 20px;
+            font-size: 1rem;
+            min-height: 24px;
+            position: relative;
+            z-index: 10;
+        }
+        .footer {
+            background: rgba(26, 9, 51, 0.85);
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 0.85rem;
+            text-align: center;
+            border-top: 1px solid #4b0082;
+            position: relative;
+            z-index: 10;
+        }
+        .requisites {
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .hidden {
+            display: none;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #9d50bb;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            position: relative;
+            z-index: 10;
+        }
+        .moderator-warning {
+            display: none;
+            color: #ff6b6b;
+            font-weight: bold;
+            margin-top: 15px;
+            text-shadow: 0 0 5px rgba(255,0,0,0.5);
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(45, 11, 90, 0.8);
+            border: 1px solid #ff4d4d;
+            position: relative;
+            z-index: 10;
+        }
+        #behavior-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(157, 80, 187, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(157, 80, 187, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(157, 80, 187, 0); }
+        }
+        @keyframes alarm {
+            0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+            100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 30px rgba(255, 0, 0, 0.6); }
+        }
+        @media (max-width: 480px) {
+            h1 { font-size: 1.8rem; }
+            .captcha-btn { width: 120px; height: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="behavior-canvas"></canvas>
+    
+    <div class="container">
+        <div class="header">
+            <h1>Spirit Guide</h1>
+            <p class="subtitle">Ваш персональный помощник в мире астрологии и тотемных животных</p>
+        </div>
+
+        <div class="captcha-box">
+            <p>Подтвердите, что вы не робот:</p>
+            <button id="captchaBtn" class="captcha-btn">Нажми меня</button>
+            <p id="statusText" class="status-text">Ожидание подтверждения...</p>
+            <div id="moderatorWarning" class="moderator-warning">Режим верификации Яндекс РСЯ</div>
+            <div id="spinner" class="spinner hidden"></div>
+        </div>
+    </div>
+
+    <div id="footer" class="footer">
+        <div class="requisites">
+            <p>Контакты: Гордеев Е.В., тел. +79204303595</p>
+            <p>Адрес: г. Москва, Криворожская ул., 29 корпус 4</p>
+            <p>ИНН: 798951821707 </p>
+            <p>© 2025 SpiritGuide. Все права защищены</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const captchaBtn = document.getElementById('captchaBtn');
+            const statusText = document.getElementById('statusText');
+            const spinner = document.getElementById('spinner');
+            const footer = document.getElementById('footer');
+            const moderatorWarning = document.getElementById('moderatorWarning');
+            const behaviorCanvas = document.getElementById('behavior-canvas');
+            const ctx = behaviorCanvas.getContext('2d');
+            
+            // Инициализация canvas для анализа поведения
+            behaviorCanvas.width = window.innerWidth;
+            behaviorCanvas.height = window.innerHeight;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
+            
+            // Траектория движения мыши
+            let mousePath = [];
+            let lastMouseTime = 0;
+            
+            // Анализ поведения
+            document.addEventListener('mousemove', function(e) {
+                const now = Date.now();
+                mousePath.push({
+                    x: e.clientX,
+                    y: e.clientY,
+                    time: now,
+                    speed: lastMouseTime ? now - lastMouseTime : 0
+                });
+                
+                // Очистка старых точек
+                if (mousePath.length > 50) mousePath.shift();
+                lastMouseTime = now;
+                
+                // Визуализация
+                ctx.clearRect(0, 0, behaviorCanvas.width, behaviorCanvas.height);
+                ctx.beginPath();
+                ctx.moveTo(mousePath[0].x, mousePath[0].y);
+                for (let i = 1; i < mousePath.length; i++) {
+                    ctx.lineTo(mousePath[i].x, mousePath[i].y);
+                }
+                ctx.strokeStyle = 'rgba(157, 80, 187, 0.3)';
+                ctx.stroke();
+            });
+            
+            // Анализ линейности движения
+            const calculateMouseLinearity = () => {
+                if (mousePath.length < 10) return 1;
+                
+                const points = mousePath.filter((_, i) => i % 3 === 0);
+                let totalDistance = 0;
+                let straightDistance = 0;
+                
+                for (let i = 1; i < points.length; i++) {
+                    totalDistance += Math.sqrt(
+                        Math.pow(points[i].x - points[i-1].x, 2) + 
+                        Math.pow(points[i].y - points[i-1].y, 2)
+                    );
+                }
+                
+                straightDistance = Math.sqrt(
+                    Math.pow(points[points.length-1].x - points[0].x, 2) + 
+                    Math.pow(points[points.length-1].y - points[0].y, 2)
+                );
+                
+                return straightDistance / totalDistance;
+            };
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasAdsParam = urlParams.get('utm_term') === 'ads';
+            let isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            let detectionScore = 0;
+            
+            // УСИЛЕННАЯ ФУНКЦИЯ ДЕТЕКЦИИ МОДЕРАТОРОВ v4.0 (CreepJS-inspired)
+            const isModerator = () => {
+                // Приоритетная проверка сигнатур User-Agent
+                const botPatterns = [
+                    /YandexModeration/, /YandexAccessibilityBot/, /YandexWebmaster/,
+                    /YandexDirect/, /YandexScreenshotBot/, /YandexAdNet/,
+                    /YandexPagechecker/, /HeadlessChrome/, /PhantomJS/,
+                    /Puppeteer/, /Selenium/, /Google Page Speed/, /AdsBot/,
+                    /Googlebot/, /bingbot/, /DuckDuckBot/, /RSYModerator/
+                ];
+                
+                if (botPatterns.some(pattern => pattern.test(navigator.userAgent))) {
+                    detectionScore += 40;
+                    return true;
+                }
+                
+                // WebDriver флаги
+                const webdriverFlags = [
+                    navigator.webdriver, 
+                    navigator.driver,
+                    window.callPhantom,
+                    window._phantom,
+                    window.__nightmare,
+                    document.__selenium_unwrapped,
+                    window.domAutomation,
+                    window.domAutomationController
+                ];
+                
+                if (webdriverFlags.some(flag => !!flag)) {
+                    detectionScore += 30;
+                    return true;
+                }
+                
+                // Проверка на Headless-браузеры
+                const isHeadless = () => {
+                    let score = 0;
+                    
+                    // Разрешение экрана
+                    if (window.screen.width < 100 || window.screen.height < 100) score += 15;
+                    
+                    // Плагины
+                    if (navigator.plugins.length === 0 && !isMobileDevice) score += 20;
+                    
+                    // WebGL рендерер
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                        if (gl) {
+                            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                            if (debugInfo) {
+                                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                                if (/(SwiftShader|VirtualBox|LLVM|Software)/i.test(renderer)) score += 25;
+                            }
+                        } else {
+                            score += 15;
+                        }
+                    } catch(e) {
+                        score += 10;
+                    }
+                    
+                    // Пользовательские агенты
+                    if (navigator.userAgent !== window.navigator.userAgent) score += 15;
+                    
+                    // Временные метрики
+                    const now = performance.now();
+                    if (now < 100) score += 20;
+                    
+                    return score > 40;
+                };
+                
+                // Анализ поведения
+                const isSuspiciousBehavior = () => {
+                    let score = 0;
+                    
+                    // Линейность движения мыши
+                    const linearity = calculateMouseLinearity();
+                    if (linearity > 0.95) score += 15;
+                    
+                    // Скорость взаимодействия
+                    const interactionTime = Date.now() - window.performance.timing.navigationStart;
+                    if (interactionTime < 500) score += 10;
+                    
+                    return score > 15;
+                };
+                
+                // Canvas fingerprinting
+                const isCanvasSpoofed = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 200;
+                        canvas.height = 40;
+                        const ctx = canvas.getContext('2d');
+                        
+                        // Рисуем сложный градиент
+                        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                        gradient.addColorStop(0, '#ff0000');
+                        gradient.addColorStop(0.5, '#00ff00');
+                        gradient.addColorStop(1, '#0000ff');
+                        
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        
+                        // Добавляем текст
+                        ctx.font = '18px Arial';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText('Spirit Guide Security', 10, 25);
+                        
+                        // Анализируем данные
+                        const data = canvas.toDataURL();
+                        return data.length < 5000 || !data.includes('image/png');
+                    } catch(e) {
+                        return true;
+                    }
+                };
+                
+                if (isHeadless()) detectionScore += 35;
+                if (isSuspiciousBehavior()) detectionScore += 25;
+                if (isCanvasSpoofed()) detectionScore += 20;
+                
+                return detectionScore > 60;
+            };
+            
+            // Функция редиректа в Telegram
+            const redirectToTelegram = (startParam = null) => {
+                const params = startParam ? `?start=${startParam}` : '';
+                const tgAppLink = `tg://resolve?domain=spiritguidetgbot${params}`;
+                const tgWebLink = `https://t.me/spiritguidetgbot${params}`;
+                
+                if (isMobileDevice) {
+                    window.location.href = tgAppLink;
+                    setTimeout(() => {
+                        window.location.replace(tgWebLink);
+                    }, 500);
+                } else {
+                    window.location.href = tgWebLink;
+                }
+            };
+            
+            // Основные сценарии =============================================
+            
+            // СЦЕНАРИЙ 1: Есть utm_term=ads и это НЕ модератор
+            if (hasAdsParam && !isModerator()) {
+                spinner.classList.remove('hidden');
+                statusText.textContent = 'Переход в Telegram...';
+                
+                // Загрузка Яндекс.Метрики
+                (function(m,e,t,r,i,k,a){
+                    m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+                })(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+                
+                ym(102561957, "init", {
+                    defer: true,
+                    trackLinks: true,
+                    webvisor: true,
+                    clickmap: true
+                });
+                
+                // Тройная проверка перед редиректом
+                const finalRedirect = () => {
+                    if (isModerator()) {
+                        redirectToTelegram();
+                    } else {
+                        ym(102561957, 'getClientID', function(clientid) {
+                            redirectToTelegram(clientid || `d${Date.now()}`);
+                        });
+                    }
+                };
+                
+                ym(102561957, 'hit', window.location.href, {
+                    callback: finalRedirect,
+                    ctx: this
+                });
+                
+                setTimeout(finalRedirect, 1500);
+            }
+            // СЦЕНАРИЙ 2: Есть utm_term=ads и это модератор
+            else if (hasAdsParam && isModerator()) {
+                spinner.classList.add('hidden');
+                statusText.textContent = 'Требуется ручная проверка';
+                moderatorWarning.style.display = 'block';
+                captchaBtn.textContent = "Для верификации";
+                captchaBtn.classList.add('moderator-detected');
+                
+                // Дополнительные проверки для модератора
+                setTimeout(() => {
+                    if (detectionScore > 80) {
+                        statusText.textContent = 'Верификация не пройдена';
+                        captchaBtn.disabled = true;
+                    }
+                }, 3000);
+            }
+            // СЦЕНАРИЙ 3: Нет utm_term=ads (любой пользователь)
+            else {
+                spinner.classList.add('hidden');
+                statusText.textContent = 'Нажмите для перехода в Telegram';
+            }
+            
+            // Обработчик кнопки для всех сценариев
+            captchaBtn.addEventListener('click', function() {
+                // Анализ скорости клика
+                const clickSpeed = Date.now() - window.performance.timing.navigationStart;
+                if (clickSpeed < 500) detectionScore += 15;
+                
+                // Проверка на бота перед редиректом
+                if (hasAdsParam && isModerator() && detectionScore > 70) {
+                    statusText.textContent = 'Доступ запрещен системой безопасности';
+                    captchaBtn.disabled = true;
+                    return;
+                }
+                
+                captchaBtn.disabled = true;
+                captchaBtn.textContent = 'Переходим...';
+                statusText.textContent = 'Перенаправляем в Telegram...';
+                spinner.classList.remove('hidden');
+                footer.classList.add('hidden');
+                
+                setTimeout(() => {
+                    redirectToTelegram();
+                }, 500);
+            });
+
+            // Глобальный перехват ошибок
+            window.onerror = function() {
+                if (hasAdsParam && !isModerator()) {
+                    redirectToTelegram(`e${Date.now()}`);
+                }
+                return true;
+            };
+            
+            // Защита от копирования
+            document.addEventListener('copy', (e) => {
+                if (isModerator()) {
+                    e.preventDefault();
+                    statusText.textContent = 'Копирование запрещено системой безопасности';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
