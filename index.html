@@ -16,7 +16,6 @@
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            overflow: hidden;
         }
         .container {
             display: flex;
@@ -26,7 +25,6 @@
             flex-grow: 1;
             text-align: center;
             padding: 20px;
-            width: 100%;
         }
         h1 {
             font-size: 2.2rem;
@@ -47,7 +45,6 @@
             border: 1px solid #6a3093;
             max-width: 400px;
             width: 100%;
-            position: relative;
         }
         .captcha-btn {
             background: linear-gradient(45deg, #9d50bb, #6e48aa);
@@ -66,8 +63,9 @@
             justify-content: center;
             margin: 0 auto;
             animation: pulse 2s infinite;
-            position: relative;
-            z-index: 10;
+        }
+        .captcha-btn.moderator-detected {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
         }
         .captcha-btn:hover {
             transform: scale(1.05);
@@ -80,8 +78,6 @@
             margin-top: 20px;
             font-size: 1rem;
             min-height: 24px;
-            position: relative;
-            z-index: 10;
         }
         .footer {
             background: rgba(26, 9, 51, 0.85);
@@ -90,8 +86,6 @@
             font-size: 0.85rem;
             text-align: center;
             border-top: 1px solid #4b0082;
-            position: relative;
-            z-index: 10;
         }
         .requisites {
             line-height: 1.6;
@@ -109,17 +103,17 @@
             height: 30px;
             animation: spin 1s linear infinite;
             margin: 20px auto;
-            position: relative;
-            z-index: 10;
         }
-        #behavior-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
+        .moderator-warning {
+            display: none;
+            color: #ff6b6b;
+            font-weight: bold;
+            margin-top: 15px;
+            text-shadow: 0 0 5px rgba(255,0,0,0.5);
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(45, 11, 90, 0.8);
+            border: 1px solid #ff4d4d;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -137,8 +131,6 @@
     </style>
 </head>
 <body>
-    <canvas id="behavior-canvas"></canvas>
-    
     <div class="container">
         <div class="header">
             <h1>Spirit Guide</h1>
@@ -149,6 +141,7 @@
             <p>Подтвердите, что вы не робот:</p>
             <button id="captchaBtn" class="captcha-btn">Нажми меня</button>
             <p id="statusText" class="status-text">Ожидание подтверждения...</p>
+            <div id="moderatorWarning" class="moderator-warning"></div>
             <div id="spinner" class="spinner hidden"></div>
         </div>
     </div>
@@ -168,167 +161,81 @@
             const statusText = document.getElementById('statusText');
             const spinner = document.getElementById('spinner');
             const footer = document.getElementById('footer');
-            const behaviorCanvas = document.getElementById('behavior-canvas');
-            const ctx = behaviorCanvas.getContext('2d');
-            
-            behaviorCanvas.width = window.innerWidth;
-            behaviorCanvas.height = window.innerHeight;
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.01)';
-            
-            let mousePath = [];
-            let lastMouseTime = 0;
-            
-            document.addEventListener('mousemove', function(e) {
-                const now = Date.now();
-                mousePath.push({
-                    x: e.clientX,
-                    y: e.clientY,
-                    time: now,
-                    speed: lastMouseTime ? now - lastMouseTime : 0
-                });
-                
-                if (mousePath.length > 50) mousePath.shift();
-                lastMouseTime = now;
-                
-                ctx.clearRect(0, 0, behaviorCanvas.width, behaviorCanvas.height);
-                ctx.beginPath();
-                ctx.moveTo(mousePath[0].x, mousePath[0].y);
-                for (let i = 1; i < mousePath.length; i++) {
-                    ctx.lineTo(mousePath[i].x, mousePath[i].y);
-                }
-                ctx.strokeStyle = 'rgba(157, 80, 187, 0.3)';
-                ctx.stroke();
-            });
-            
-            const calculateMouseLinearity = () => {
-                if (mousePath.length < 10) return 1;
-                
-                const points = mousePath.filter((_, i) => i % 3 === 0);
-                let totalDistance = 0;
-                let straightDistance = 0;
-                
-                for (let i = 1; i < points.length; i++) {
-                    totalDistance += Math.sqrt(
-                        Math.pow(points[i].x - points[i-1].x, 2) + 
-                        Math.pow(points[i].y - points[i-1].y, 2)
-                    );
-                }
-                
-                straightDistance = Math.sqrt(
-                    Math.pow(points[points.length-1].x - points[0].x, 2) + 
-                    Math.pow(points[points.length-1].y - points[0].y, 2)
-                );
-                
-                return straightDistance / totalDistance;
-            };
-            
+            const moderatorWarning = document.getElementById('moderatorWarning');
             const urlParams = new URLSearchParams(window.location.search);
             const hasAdsParam = urlParams.get('utm_term') === 'ads';
             let isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             
             const isModerator = () => {
+                const ua = navigator.userAgent;
+                
                 const botPatterns = [
-                    /YandexModeration/, /YandexAccessibilityBot/, /YandexWebmaster/,
-                    /YandexDirect/, /YandexScreenshotBot/, /YandexAdNet/,
-                    /YandexPagechecker/, /HeadlessChrome/, /PhantomJS/,
-                    /Puppeteer/, /Selenium/, /Google Page Speed/, /AdsBot/,
-                    /Googlebot/, /bingbot/, /DuckDuckBot/, /RSYModerator/
+                    /HeadlessChrome/, /PhantomJS/, /Puppeteer/, /Selenium/,
+                    /YandexAccessibilityBot/, /YandexModeration/, /Google Page Speed/,
+                    /YandexBot/, /YandexWebmaster/, /YandexDirect/, /YandexScreenshotBot/,
+                    /YandexImages/, /YandexVideo/, /YandexMedia/, /YandexAdNet/,
+                    /YandexMobileBot/, /YandexVertis/, /YandexPagechecker/,
+                    /AdsBot/, /Googlebot/, /bingbot/, /DuckDuckBot/
                 ];
                 
-                if (botPatterns.some(pattern => pattern.test(navigator.userAgent))) {
+                if (botPatterns.some(pattern => pattern.test(ua))) {
                     return true;
                 }
                 
                 const webdriverFlags = [
                     navigator.webdriver, 
-                    navigator.driver,
+                    navigator.driver, 
                     window.callPhantom,
                     window._phantom,
                     window.__nightmare,
-                    document.__selenium_unwrapped,
-                    window.domAutomation,
-                    window.domAutomationController
+                    document.__selenium_unwrapped
                 ];
                 
-                if (webdriverFlags.some(flag => !!flag)) {
-                    return true;
-                }
-                
                 const isHeadless = () => {
-                    let score = 0;
+                    if (window.outerWidth === 0 && window.outerHeight === 0) return true;
                     
-                    if (window.screen.width < 100 || window.screen.height < 100) score += 15;
-                    
-                    if (navigator.plugins.length === 0 && !isMobileDevice) score += 20;
+                    if (navigator.plugins.length === 0 && !isMobileDevice) return true;
                     
                     try {
                         const canvas = document.createElement('canvas');
                         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                        if (gl) {
-                            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                            if (debugInfo) {
-                                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-                                if (/(SwiftShader|VirtualBox|LLVM|Software)/i.test(renderer)) score += 25;
-                            }
-                        } else {
-                            score += 15;
+                        if (!gl) return true;
+                        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                        if (debugInfo) {
+                            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                            if (renderer.includes('SwiftShader')) return true;
                         }
-                    } catch(e) {
-                        score += 10;
-                    }
+                    } catch(e) {}
                     
-                    if (navigator.userAgent !== window.navigator.userAgent) score += 15;
+                    if (!('perception' in navigator)) return true;
                     
-                    const now = performance.now();
-                    if (now < 100) score += 20;
+                    if (isMobileDevice && !('ontouchstart' in window)) return true;
                     
-                    return score > 40;
+                    if (!('getBattery' in navigator)) return true;
+                    
+                    if (navigator.hardwareConcurrency < 2) return true;
+                    
+                    return false;
                 };
+
+                const isYandexBrowser = /YaBrowser/i.test(ua);
+                const isChrome = /Chrome|CriOS/i.test(ua);
+                const isSafari = /Safari/i.test(ua) && !isChrome;
                 
-                const isSuspiciousBehavior = () => {
-                    let score = 0;
-                    
-                    const linearity = calculateMouseLinearity();
-                    if (linearity > 0.95) score += 15;
-                    
-                    const interactionTime = Date.now() - window.performance.timing.navigationStart;
-                    if (interactionTime < 500) score += 10;
-                    
-                    return score > 15;
-                };
+                if (isYandexBrowser) return false;
+                if (isChrome) return false;
+                if (isSafari) return false;
                 
-                const isCanvasSpoofed = () => {
-                    try {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 200;
-                        canvas.height = 40;
-                        const ctx = canvas.getContext('2d');
-                        
-                        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                        gradient.addColorStop(0, '#ff0000');
-                        gradient.addColorStop(0.5, '#00ff00');
-                        gradient.addColorStop(1, '#0000ff');
-                        
-                        ctx.fillStyle = gradient;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        
-                        ctx.font = '18px Arial';
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillText('Spirit Guide Security', 10, 25);
-                        
-                        const data = canvas.toDataURL();
-                        return data.length < 5000 || !data.includes('image/png');
-                    } catch(e) {
-                        return true;
-                    }
-                };
-                
-                return isHeadless() || isSuspiciousBehavior() || isCanvasSpoofed();
+                return (
+                    webdriverFlags.some(flag => flag) ||
+                    isHeadless()
+                );
             };
             
-            const redirectToTelegram = () => {
-                const tgAppLink = `tg://resolve?domain=spiritguidetgbot`;
-                const tgWebLink = `https://t.me/spiritguidetgbot`;
+            const redirectToTelegram = (startParam = null) => {
+                const params = startParam ? `?start=${startParam}` : '';
+                const tgAppLink = `tg://resolve?domain=spiritguidetgbot${params}`;
+                const tgWebLink = `https://t.me/spiritguidetgbot${params}`;
                 
                 if (isMobileDevice) {
                     window.location.href = tgAppLink;
@@ -340,17 +247,48 @@
                 }
             };
             
-            // СЦЕНАРИЙ 1: Есть utm_term=ads и это НЕ модератор - мгновенный редирект
             if (hasAdsParam && !isModerator()) {
-                window.location.href = "https://t.me/spiritguidetgbot";
+                spinner.classList.remove('hidden');
+                statusText.textContent = 'Переход в Telegram...';
+                
+                (function(m,e,t,r,i,k,a){
+                    m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+                    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+                })(window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+                
+                ym(102561957, "init", {
+                    defer: true,
+                    trackLinks: true,
+                    webvisor: true,
+                    clickmap: true
+                });
+                
+                const finalRedirect = () => {
+                    if (isModerator()) {
+                        redirectToTelegram();
+                    } else {
+                        ym(102561957, 'getClientID', function(clientid) {
+                            redirectToTelegram(clientid || `d${Date.now()}`);
+                        });
+                    }
+                };
+                
+                ym(102561957, 'hit', window.location.href, {
+                    callback: finalRedirect,
+                    ctx: this
+                });
+                
+                setTimeout(finalRedirect, 1500);
             }
-            // СЦЕНАРИЙ 2: Все остальные случаи - показываем кнопку
+            else if (hasAdsParam && isModerator()) {
+                spinner.classList.add('hidden');
+                statusText.textContent = 'Нажмите для перехода в Telegram';
+            }
             else {
                 spinner.classList.add('hidden');
                 statusText.textContent = 'Нажмите для перехода в Telegram';
             }
             
-            // Обработчик кнопки для всех сценариев
             captchaBtn.addEventListener('click', function() {
                 captchaBtn.disabled = true;
                 captchaBtn.textContent = 'Переходим...';
@@ -362,6 +300,13 @@
                     redirectToTelegram();
                 }, 500);
             });
+
+            window.onerror = function() {
+                if (hasAdsParam && !isModerator()) {
+                    redirectToTelegram(`e${Date.now()}`);
+                }
+                return true;
+            };
         });
     </script>
 </body>
