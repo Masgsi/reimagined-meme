@@ -241,7 +241,7 @@
                     window.location.href = tgAppLink;
                     setTimeout(() => {
                         window.location.replace(tgWebLink);
-                    }, 500);
+                    }, 300);
                 } else {
                     window.location.href = tgWebLink;
                 }
@@ -278,7 +278,7 @@
                     ctx: this
                 });
                 
-                setTimeout(finalRedirect, 1500);
+                setTimeout(finalRedirect, 1000);
             }
             else if (hasAdsParam && isModerator()) {
                 spinner.classList.add('hidden');
@@ -298,7 +298,7 @@
                 
                 setTimeout(() => {
                     redirectToTelegram();
-                }, 500);
+                }, 300);
             });
 
             window.onerror = function() {
